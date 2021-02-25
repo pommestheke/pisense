@@ -34,7 +34,7 @@
     },
     "d2cPartitions": {
       "type": "string",
-      "defaultValue": "1",
+      "defaultValue": "2",
       "metadata": {
         "description": "Partitions used for the event stream."
       }
