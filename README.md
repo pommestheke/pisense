@@ -20,6 +20,7 @@ export IOTHUB_DEVICE_CONNECTION_STRING="<string>";pisense
 
 ## pisense Azure IoT hub
 
-The pisense Azur IoT hub infrastruture can deployed to Azure using ARM templates located in the azure-templated subdirectory. 
+The pisense Azur IoT hub infrastruture can deployed to Azure using ARM templates located in the azure-templates subdirectory:
+https://github.com/pommestheke/pisense/tree/main/azure-templates
 
 
