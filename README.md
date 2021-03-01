@@ -10,8 +10,7 @@ The pisense client is written in Go 1.16. In order to use the client on your Ras
 ```
 go get github.com/pommestheke/pisense/cmd/pisense
 ```
-3. Run the pisense client
-In order to let the pisense client connect to your IoT hub, you need to set the environment variable
+3. Run the pisense client: In order to let the pisense client connect to your IoT hub, you need to set the environment variable
 `IOTHUB_DEVICE_CONNECTION_STRING` and run the pisense client
 
 ```
