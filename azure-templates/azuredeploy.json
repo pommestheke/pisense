@@ -38,10 +38,40 @@
       "metadata": {
         "description": "Partitions used for the event stream."
       }
+    },
+    "sqlAdministratorLogin": {
+      "type": "string",
+      "metadata": {
+        "description": "Administrator login for SQL database server"
+      }
+    },
+    "sqlAdministratorLoginPassword": {
+      "type": "string",
+      "metadata": {
+        "description": "Administrator password for SQL database server"
+      }
+    },
+    "bacpacUrl": {
+      "type":"string",
+      "metadata":{
+        "description": "Specifies the URL of the BACPAK file to be imported in the SQL datrabase."
+      }
+    },
+    "deployStorageAccountKey": {
+      "type":"string",
+      "metadata":{
+        "description": "Key to the storage of additional deployment resources."
+      }
     }
   },
   "variables": {
     "iotHubName": "[concat(parameters('projectName'), 'Hub', uniqueString(resourceGroup().id))]",
+    "iotHubVersion": "2020-07-10-preview",
+    "iotHubKeyName": "iothubowner",
+    "iotHubKeyResource": "[resourceId('Microsoft.Devices/Iothubs/Iothubkeys', variables('iotHubName'), variables('iotHubKeyName'))]",
+    "streamJobName": "[concat(parameters('projectName'), 'StreamJob', uniqueString(resourceGroup().id))]",
+    "sqlServerName": "[concat(parameters('projectName'), 'sqlserver', uniqueString(resourceGroup().id))]",
+    "sqlDBName": "Telemetry",
     "storageAccountName": "[concat(toLower(parameters('projectName')), uniqueString(resourceGroup().id))]",
     "storageEndpoint": "[concat(parameters('projectName'), 'StorageEndpont')]",
     "storageContainerName": "[concat(toLower(parameters('projectName')), 'results')]"
@@ -74,12 +104,9 @@
     },
     {
       "type": "Microsoft.Devices/IotHubs",
-      "apiVersion": "2020-07-10-preview",
+      "apiVersion": "[variables('iotHubVersion')]",
       "name": "[variables('IoTHubName')]",
       "location": "[parameters('location')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
-      ],
       "sku": {
         "name": "[parameters('skuName')]",
         "capacity": "[parameters('skuUnits')]"
@@ -93,28 +120,8 @@
         },
         "routing": {
           "endpoints": {
-            "storageContainers": [
-              {
-                "connectionString": "[Concat('DefaultEndpointsProtocol=https;AccountName=',variables('storageAccountName'),';EndpointSuffix=',environment().suffixes.storage,';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2019-06-01').keys[0].value)]",
-                "containerName": "[variables('storageContainerName')]",
-                "fileNameFormat": "{iothub}/{partition}/{YYYY}/{MM}/{DD}/{HH}/{mm}",
-                "batchFrequencyInSeconds": 100,
-                "maxChunkSizeInBytes": 104857600,
-                "encoding": "json",
-                "name": "[variables('storageEndpoint')]"
-              }
-            ]
           },
           "routes": [
-            {
-              "name": "ContosoStorageRoute",
-              "source": "DeviceMessages",
-              "condition": "level=\"storage\"",
-              "endpointNames": [
-                "[variables('storageEndpoint')]"
-              ],
-              "isEnabled": true
-            }
           ],
           "fallbackRoute": {
             "name": "$fallback",
@@ -141,6 +148,137 @@
             "lockDurationAsIso8601": "PT1M",
             "ttlAsIso8601": "PT1H",
             "maxDeliveryCount": 10
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Sql/servers",
+      "apiVersion": "2020-02-02-preview",
+      "name": "[variables('sqlServerName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "administratorLogin": "[parameters('sqlAdministratorLogin')]",
+        "administratorLoginPassword": "[parameters('sqlAdministratorLoginPassword')]"
+      },
+      "resources": [
+        {
+          "type": "databases",
+          "apiVersion": "2020-08-01-preview",
+          "name": "[variables('sqlDBName')]",
+          "location": "[parameters('location')]",
+          "sku": {
+            "name": "Standard",
+            "tier": "Standard"
+          },
+          "dependsOn": [
+            "[resourceId('Microsoft.Sql/servers', concat(variables('sqlServerName')))]"
+          ],
+          "resources": [
+            {
+              "type": "extensions",
+              "apiVersion": "2014-04-01-preview",
+              "name": "Import",
+              "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers/databases', variables('sqlServerName'), variables('sqlDBName'))]"
+              ],
+              "properties": {
+                "storageKeyType": "StorageAccessKey",
+                "storageKey": "[parameters('deployStorageAccountKey')]",
+                "storageUri": "[parameters('bacpacUrl')]",
+                "administratorLogin": "[parameters('sqlAdministratorLogin')]",
+                "administratorLoginPassword": "[parameters('sqlAdministratorLoginPassword')]",
+                "operationMode": "Import"
+              }
+            }
+          ]
+        },
+        {
+          "type": "firewallrules",
+          "apiVersion": "2015-05-01-preview",
+          "name": "AllowAllAzureIps",
+          "location": "[parameters('location')]",
+          "dependsOn": [
+            "[variables('sqlServerName')]"
+          ],
+          "properties": {
+            "startIpAddress": "0.0.0.0",
+            "endIpAddress": "0.0.0.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "Microsoft.StreamAnalytics/streamingjobs",
+      "apiVersion": "2017-04-01-preview",
+      "name": "[variables('streamJobName')]",
+      "dependsOn": [
+          "[resourceId('Microsoft.Devices/IotHubs', variables('IoTHubName'))]"
+      ],
+      "location": "West Europe",
+      "properties": {
+      "sku": {
+        "name": "Standard"
+      },
+      "eventsOutOfOrderPolicy": "Adjust",
+      "outputErrorPolicy": "Stop",
+      "eventsOutOfOrderMaxDelayInSeconds": 0,
+      "eventsLateArrivalMaxDelayInSeconds": 5,
+      "dataLocale": "en-US",
+      "compatibilityLevel": "1.2",
+      "contentStoragePolicy": "SystemAccount",
+      "jobType": "Cloud"
+      }
+    },
+    {
+      "type": "Microsoft.StreamAnalytics/streamingjobs/inputs",
+      "apiVersion": "2017-04-01-preview",
+      "name": "[concat(variables('streamJobName'), '/PisenseTelemetry')]",
+      "dependsOn": [
+          "[resourceId('Microsoft.StreamAnalytics/streamingjobs', variables('streamJobName'))]",
+          "[resourceId('Microsoft.Devices/IotHubs', variables('IoTHubName'))]"
+      ],
+      "properties": {
+        "type": "Stream",
+        "datasource": {
+          "type": "Microsoft.Devices/IotHubs",
+          "properties": {
+            "iotHubNamespace": "[variables('IoTHubName')]",
+            "sharedAccessPolicyName": "[variables('iotHubKeyName')]",
+            "sharedAccessPolicyKey": "[listkeys(variables('iotHubKeyResource'), variables('iotHubVersion')).primaryKey]",
+            "endpoint": "messages/events",
+            "consumerGroupName": "$Default"
+          }
+        },
+        "compression": {
+          "type": "None"
+        },
+        "serialization": {
+          "type": "Json",
+          "properties": {
+            "encoding": "UTF8"
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.StreamAnalytics/streamingjobs/outputs",
+      "apiVersion": "2017-04-01-preview",
+      "name": "[concat(variables('streamJobName'), '/TimeSeries')]",
+      "dependsOn": [
+          "[resourceId('Microsoft.StreamAnalytics/streamingjobs', variables('streamJobName'))]"
+      ],
+      "properties": {
+        "datasource": {
+          "type": "Microsoft.Sql/Server/Database",
+          "properties": {
+              "maxWriterCount": 1,
+              "maxBatchCount": 10000,
+              "table": "Telemetry",
+              "server": "[variables('sqlServerName')]",
+              "database": "Telemetry",
+              "user": "[parameters('sqlAdministratorLogin')]",
+              "password": "[parameters('sqlAdministratorLoginPassword')]"
           }
         }
       }
