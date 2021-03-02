@@ -194,7 +194,6 @@
       },
       "eventsOutOfOrderPolicy": "Adjust",
       "outputErrorPolicy": "Stop",
-      "outputStartMode": "JobStartTime",
       "eventsOutOfOrderMaxDelayInSeconds": 0,
       "eventsLateArrivalMaxDelayInSeconds": 5,
       "dataLocale": "en-US",
