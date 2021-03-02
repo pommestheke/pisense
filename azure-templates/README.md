@@ -8,7 +8,7 @@ Follow these steps:
 
 1. Upload the Telemetry.bacpac database schema from this directory to an Azure storageAccount
 2. Hit the above Deploy to Azure button and fill out the template parameters including path and key to the bacpac 
-3. After deployment Go to the IoT Hub resource configuration and add a new device. Use the resulting connection string with the pisense client
+3. After deployment go to the IoT Hub resource configuration and add a new device. Use the resulting connection string with the pisense client
 
 The Azure Time Series Insight environment needs to be commissioned manually due to lack of Gen2 template reference.
 
