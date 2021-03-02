@@ -187,7 +187,7 @@
       "dependsOn": [
           "[resourceId('Microsoft.Devices/IotHubs', variables('IoTHubName'))]"
       ],
-      "location": "West Europe",
+      "location": "[parameters('location')]",
       "properties": {
       "sku": {
         "name": "Standard"
