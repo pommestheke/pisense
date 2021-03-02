@@ -71,37 +71,9 @@
     "iotHubKeyResource": "[resourceId('Microsoft.Devices/Iothubs/Iothubkeys', variables('iotHubName'), variables('iotHubKeyName'))]",
     "streamJobName": "[concat(parameters('projectName'), 'StreamJob', uniqueString(resourceGroup().id))]",
     "sqlServerName": "[concat(parameters('projectName'), 'sqlserver', uniqueString(resourceGroup().id))]",
-    "sqlDBName": "Telemetry",
-    "storageAccountName": "[concat(toLower(parameters('projectName')), uniqueString(resourceGroup().id))]",
-    "storageEndpoint": "[concat(parameters('projectName'), 'StorageEndpont')]",
-    "storageContainerName": "[concat(toLower(parameters('projectName')), 'results')]"
+    "sqlDBName": "Telemetry"
   },
   "resources": [
-    {
-      "type": "Microsoft.Storage/storageAccounts",
-      "apiVersion": "2019-06-01",
-      "name": "[variables('storageAccountName')]",
-      "location": "[parameters('location')]",
-      "sku": {
-        "name": "Standard_LRS",
-        "tier": "Standard"
-      },
-      "kind": "Storage",
-      "properties": {},
-      "resources": [
-        {
-          "type": "blobServices/containers",
-          "apiVersion": "2019-06-01",
-          "name": "[concat('default/', variables('storageContainerName'))]",
-          "dependsOn": [
-            "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
-          ],
-          "properties": {
-            "publicAccess": "None"
-          }
-        }
-      ]
-    },
     {
       "type": "Microsoft.Devices/IotHubs",
       "apiVersion": "[variables('iotHubVersion')]",
@@ -222,6 +194,7 @@
       },
       "eventsOutOfOrderPolicy": "Adjust",
       "outputErrorPolicy": "Stop",
+      "outputStartMode": "JobStartTime",
       "eventsOutOfOrderMaxDelayInSeconds": 0,
       "eventsLateArrivalMaxDelayInSeconds": 5,
       "dataLocale": "en-US",
@@ -282,6 +255,18 @@
           }
         }
       }
+    },
+    {
+      "type": "Microsoft.StreamAnalytics/streamingjobs/transformations",
+      "apiVersion": "2017-04-01-preview",
+      "name": "[concat(variables('streamJobName'), '/Transformation')]",
+      "dependsOn": [
+          "[resourceId('Microsoft.StreamAnalytics/streamingjobs', variables('streamJobName'))]"
+      ],
+      "properties": {
+        "streamingUnits": 1,
+        "query": "SELECT\r\nvalue\r\nINTO\r\n[TimeSeries]\r\nFROM\r\n[PisenseTelemetry] TIMESTAMP BY EventEnqueuedUtcTime"
+      }    
     }
   ],
   "outputs": {
